@@ -2,7 +2,7 @@
 
 一个为 ComfyUI 设计的工作流管理插件，参考 [comfyui-workspace-manager](https://github.com/11cafe/comfyui-workspace-manager) 的设计思路，适配最新版 ComfyUI。
 
-<img width="737" height="976" alt="image" src="https://github.com/user-attachments/assets/19d31741-ec8d-4978-b2e4-a35e26a4bb5d" />
+<img width="2571" height="1361" alt="image" src="https://github.com/user-attachments/assets/0b362c66-f61c-4cef-8135-f9e5d83dda0e" />
 
 
 ## ✨ 功能特点
