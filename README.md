@@ -111,7 +111,7 @@ yeban-workflows/
 
 ## 🖥️ 系统要求
 
-- ComfyUI 0.15.0+
+- ComfyUI 0.19.0+
 - Python 3.10+
 - 无额外 Python 依赖
 
@@ -126,10 +126,7 @@ yeban-workflows/
 - 工作流 ID 改为 UUID，避免重命名冲突
 - 自动保存功能
 
-## 补充说明
-
-自动保存限制：
-
+## 自动保存补充说明
 - 每 60 秒触发一次
 - 只会保存当前 session 里打开过的工作流（tabWorkflowMap 里有记录的）
 - 如果你手动点过"保存当前"，之后自动保存就会持续更新那个工作流
