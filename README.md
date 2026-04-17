@@ -1,6 +1,7 @@
 # yeban Workflow Manager
 
 一个为 ComfyUI 设计的工作流管理插件，参考 [comfyui-workspace-manager](https://github.com/11cafe/comfyui-workspace-manager) 的设计思路，适配最新版 ComfyUI。
+<img width="737" height="976" alt="image" src="https://github.com/user-attachments/assets/19d31741-ec8d-4978-b2e4-a35e26a4bb5d" />
 
 
 ## ✨ 功能特点
