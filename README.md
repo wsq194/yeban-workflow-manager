@@ -1,6 +1,5 @@
 一个为 ComfyUI 设计的工作流管理插件，参考 [comfyui-workspace-manager](https://github.com/11cafe/comfyui-workspace-manager) 的设计思路，适配最新版 ComfyUI。
 
-![preview](preview.png)
 
 ## ✨ 功能特点
 
