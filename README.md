@@ -21,7 +21,7 @@
 
 ```bash
 cd ComfyUI/custom_nodes
-https://github.com/wsq194/yeban-workflow-manager.git
+git clone https://github.com/wsq194/yeban-workflow-manager.git
 ```
 
 重启 ComfyUI 即可。
