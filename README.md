@@ -2,7 +2,6 @@
 
 一个为 ComfyUI 设计的工作流管理插件，参考 [comfyui-workspace-manager](https://github.com/11cafe/comfyui-workspace-manager) 的设计思路，适配最新版 ComfyUI。
 
-![preview](preview.png)
 
 ## ✨ 功能特点
 
@@ -22,7 +21,7 @@
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/yeban/yeban-workflow-manager
+https://github.com/wsq194/yeban-workflow-manager.git
 ```
 
 重启 ComfyUI 即可。
