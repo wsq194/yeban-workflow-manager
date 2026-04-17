@@ -1,0 +1,17 @@
+{
+  "version": "2.0.0",
+  "name": "yeban Workflow Manager",
+  "data_dir": "yeban-workflows",
+  "auto_save_interval": 60,
+  "max_versions": 20,
+  "features": {
+    "groups": true,
+    "search": true,
+    "backup": true,
+    "tags": true,
+    "star": true,
+    "drag_drop": true,
+    "version_history": true,
+    "thumbnail": true
+  }
+}
