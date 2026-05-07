@@ -1,9 +1,11 @@
 {
-  "version": "2.0.0",
-  "name": "yeban Workflow Manager",
+  "version": "0.2.3",
+  "name": "Yeban Workflow Manager",
   "data_dir": "yeban-workflows",
   "auto_save_interval": 60,
   "max_versions": 20,
+  "language": "zh",
+  "theme": "system",
   "features": {
     "groups": true,
     "search": true,
