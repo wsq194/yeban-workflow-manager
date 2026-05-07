@@ -13,5 +13,9 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs / Temp
 *.log
+*.tmp
+
+# ComfyUI 特定（可选）
+# 不要忽略插件自身文件！
