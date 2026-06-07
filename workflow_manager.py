@@ -21,8 +21,13 @@ class WorkflowManager:
         if base_path is None:
             raise ValueError("base_path required on first initialization")
         
-        self.file_handler = FileHandler(base_path)
         self._load_config()
+        self.file_handler = FileHandler(
+            base_path,
+            auto_backup_enabled=self.auto_backup_enabled,
+            max_auto_backups=self.max_auto_backups,
+            latest_backup_enabled=self.latest_backup_enabled,
+        )
         WorkflowManager._initialized = True
 
     def _load_config(self):
@@ -33,14 +38,23 @@ class WorkflowManager:
                 config = json.loads(config_file.read_text(encoding="utf-8"))
                 self.auto_save_interval = config.get("auto_save_interval", 60)
                 self.max_versions = config.get("max_versions", 20)
+                self.auto_backup_enabled = config.get("auto_backup_enabled", True)
+                self.max_auto_backups = config.get("max_auto_backups", 50)
+                self.latest_backup_enabled = config.get("latest_backup_enabled", True)
             else:
                 self.auto_save_interval = 60
                 self.max_versions = 20
-            print(f"[yeban-WM] Config loaded: interval={self.auto_save_interval}s, max_versions={self.max_versions}")
+                self.auto_backup_enabled = True
+                self.max_auto_backups = 50
+                self.latest_backup_enabled = True
+            print(f"[yeban-WM] Config loaded: interval={self.auto_save_interval}s, max_versions={self.max_versions}, auto_backups={self.max_auto_backups}, latest_backup={self.latest_backup_enabled}")
         except Exception as e:
             print(f"[yeban-WM] Failed to load config: {e}")
             self.auto_save_interval = 60
             self.max_versions = 20
+            self.auto_backup_enabled = True
+            self.max_auto_backups = 50
+            self.latest_backup_enabled = True
 
     @classmethod
     def reset(cls):

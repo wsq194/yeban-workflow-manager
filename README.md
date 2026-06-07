@@ -90,7 +90,9 @@ yeban-workflows/
 ├── workflows/        # 工作流 JSON 文件（以 UUID 命名）
 ├── thumbnails/       # 缩略图
 ├── versions/         # 版本历史快照
-└── backups/          # 手动备份
+└── backups/          # 手动备份与自动备份
+    ├── latest/       # 每个工作流的最新同步备份
+    └── auto/         # 覆盖保存前的历史快照备份
 ```
 
 ## ⚙️ 配置
@@ -100,7 +102,10 @@ yeban-workflows/
 ```json
 {
   "auto_save_interval": 60,
-  "max_versions": 20
+  "max_versions": 20,
+  "auto_backup_enabled": true,
+  "max_auto_backups": 50,
+  "latest_backup_enabled": true
 }
 ```
 
@@ -108,6 +113,9 @@ yeban-workflows/
 |------|------|--------|
 | auto_save_interval | 自动保存间隔（秒） | 60 |
 | max_versions | 每个工作流保留的最大版本数 | 20 |
+| latest_backup_enabled | 保存后是否同步一份最新备份 | true |
+| auto_backup_enabled | 覆盖保存前是否保留历史快照备份 | true |
+| max_auto_backups | 每个工作流最多保留的历史快照备份数 | 50 |
 
 ## 🖥️ 系统要求
 

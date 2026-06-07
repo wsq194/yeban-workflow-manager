@@ -8,13 +8,19 @@ import re
 
 
 class FileHandler:
-    def __init__(self, base_path):
+    def __init__(self, base_path, auto_backup_enabled=True, max_auto_backups=50, latest_backup_enabled=True):
         self.base_path = Path(base_path)
         self.workflows_dir = self.base_path / "workflows"
         self.thumbnails_dir = self.base_path / "thumbnails"
         self.backups_dir = self.base_path / "backups"
+        self.auto_backups_dir = self.backups_dir / "auto"
+        self.latest_backups_dir = self.backups_dir / "latest"
         self.versions_dir = self.base_path / "versions"
         self.metadata_file = self.base_path / "metadata.json"
+        self.metadata_backup_file = self.base_path / "metadata.json.bak"
+        self.auto_backup_enabled = bool(auto_backup_enabled)
+        self.max_auto_backups = max(1, int(max_auto_backups or 50))
+        self.latest_backup_enabled = bool(latest_backup_enabled)
         
         # 线程锁，保证并发安全
         self._metadata_lock = Lock()
@@ -25,13 +31,15 @@ class FileHandler:
     def _init_directories(self):
         """初始化所需目录"""
         for d in [self.workflows_dir, self.thumbnails_dir,
-                  self.backups_dir, self.versions_dir]:
+                  self.backups_dir, self.auto_backups_dir,
+                  self.latest_backups_dir, self.versions_dir]:
             d.mkdir(parents=True, exist_ok=True)
 
     def _init_metadata(self):
         """初始化元数据文件"""
         if not self.metadata_file.exists():
             self._write_metadata({"groups": {}, "workflows": {}})
+        self._recover_metadata_from_files()
 
     def _read_metadata(self):
         """线程安全地读取元数据"""
@@ -39,16 +47,213 @@ class FileHandler:
             with self._metadata_lock:
                 if not self.metadata_file.exists():
                     return {"groups": {}, "workflows": {}}
-                return json.loads(self.metadata_file.read_text(encoding="utf-8"))
+                return json.loads(self.metadata_file.read_text(encoding="utf-8-sig"))
         except Exception as e:
             print(f"[yeban-WM] Error reading metadata: {e}")
             return {"groups": {}, "workflows": {}}
+
+    def _metadata_is_valid(self, data):
+        return (
+            isinstance(data, dict)
+            and isinstance(data.get("groups"), dict)
+            and isinstance(data.get("workflows"), dict)
+        )
+
+    def _read_workflow_file(self, path):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("nodes"), list):
+                return data
+        except Exception as e:
+            print(f"[yeban-WM] Ignoring invalid workflow file {path.name}: {e}")
+        return None
+
+    def _workflow_file_for_name(self, workflow_name):
+        safe_filename = self._sanitize_filename(workflow_name or "")
+        return self.workflows_dir / f"{safe_filename}.json"
+
+    def _version_workflow_id(self, version_file):
+        match = re.match(r"^(.+)_\d{8}_\d{6}\.json$", version_file.name)
+        return match.group(1) if match else None
+
+    def _save_metadata_snapshot(self, reason):
+        if not self.metadata_file.exists():
+            return
+        try:
+            snapshot_dir = self.base_path / "metadata_backups"
+            snapshot_dir.mkdir(parents=True, exist_ok=True)
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            shutil.copy2(self.metadata_file, snapshot_dir / f"{reason}_{stamp}.json")
+        except Exception as e:
+            print(f"[yeban-WM] Failed to save metadata snapshot: {e}")
+
+    def _recover_metadata_from_files(self):
+        """
+        Rebuild missing metadata entries from workflow files and version snapshots.
+
+        Some ComfyUI update/reinstall flows can leave metadata.json empty while
+        workflows and versions are still on disk. This keeps the panel from
+        showing an empty list after that kind of index loss.
+        """
+        meta = self._read_metadata()
+        if not self._metadata_is_valid(meta):
+            meta = {"groups": {}, "workflows": {}}
+
+        workflows = meta["workflows"]
+        changed = False
+
+        workflow_files = {}
+        for path in self.workflows_dir.glob("*.json"):
+            if self._read_workflow_file(path) is not None:
+                workflow_files[path.stem] = path
+
+        latest_versions = {}
+        for path in self.versions_dir.glob("*.json"):
+            workflow_id = self._version_workflow_id(path)
+            if not workflow_id or self._read_workflow_file(path) is None:
+                continue
+            current = latest_versions.get(workflow_id)
+            if current is None or path.stat().st_mtime > current.stat().st_mtime:
+                latest_versions[workflow_id] = path
+
+        used_names = {
+            item.get("name")
+            for item in workflows.values()
+            if isinstance(item, dict) and item.get("name")
+        }
+
+        def has_metadata_for_name(name):
+            return any(
+                isinstance(item, dict) and item.get("name") == name
+                for item in workflows.values()
+            )
+
+        def add_entry(workflow_id, name, source_file):
+            nonlocal changed
+            item = workflows.get(workflow_id)
+            modified_at = datetime.fromtimestamp(source_file.stat().st_mtime).isoformat()
+            has_thumbnail = (self.thumbnails_dir / f"{workflow_id}.png").exists()
+            if item is None:
+                workflows[workflow_id] = {
+                    "id": workflow_id,
+                    "name": name,
+                    "group": None,
+                    "created_at": modified_at,
+                    "modified_at": modified_at,
+                    "size": source_file.stat().st_size,
+                    "tags": [],
+                    "starred": False,
+                    "has_thumbnail": has_thumbnail,
+                }
+                used_names.add(name)
+                changed = True
+                return
+
+            expected_file = self._workflow_file_for_name(item.get("name", ""))
+            if not expected_file.exists():
+                item["name"] = name
+                used_names.add(name)
+                changed = True
+            for key, default in (
+                ("id", workflow_id),
+                ("group", None),
+                ("created_at", modified_at),
+                ("tags", []),
+                ("starred", False),
+            ):
+                if key not in item:
+                    item[key] = default
+                    changed = True
+            if item.get("size") != source_file.stat().st_size:
+                item["size"] = source_file.stat().st_size
+                changed = True
+            if item.get("has_thumbnail") != has_thumbnail:
+                item["has_thumbnail"] = has_thumbnail
+                changed = True
+
+        for workflow_id, version_file in latest_versions.items():
+            if workflow_id in workflows:
+                continue
+
+            matching_name = None
+            matching_file = None
+            for name, path in workflow_files.items():
+                if name == workflow_id or name.startswith(f"{workflow_id}_"):
+                    matching_name = name
+                    matching_file = path
+                    break
+
+            if matching_file is None:
+                version_data = self._read_workflow_file(version_file)
+                for name, path in workflow_files.items():
+                    path_data = self._read_workflow_file(path)
+                    if (
+                        version_data
+                        and path_data
+                        and version_data.get("id")
+                        and version_data.get("id") == path_data.get("id")
+                    ):
+                        matching_name = name
+                        matching_file = path
+                        break
+                    if path.stat().st_size != version_file.stat().st_size:
+                        continue
+                    try:
+                        if path.read_bytes() == version_file.read_bytes():
+                            matching_name = name
+                            matching_file = path
+                            break
+                    except Exception as e:
+                        print(f"[yeban-WM] Failed to compare workflow file {path.name}: {e}")
+
+            if matching_file is None:
+                matching_name = workflow_id
+                matching_file = self.workflows_dir / f"{workflow_id}.json"
+                if matching_name in used_names:
+                    continue
+                try:
+                    shutil.copy2(version_file, matching_file)
+                    workflow_files[matching_name] = matching_file
+                    print(f"[yeban-WM] Recovered workflow file from version: {matching_file.name}")
+                except Exception as e:
+                    print(f"[yeban-WM] Failed to recover workflow file {workflow_id}: {e}")
+                    continue
+
+            if matching_name in used_names and not has_metadata_for_name(matching_name):
+                continue
+            add_entry(workflow_id, matching_name, matching_file)
+
+        version_ids = set(latest_versions.keys())
+        version_data_ids = {
+            data.get("id")
+            for data in (self._read_workflow_file(path) for path in latest_versions.values())
+            if data and data.get("id")
+        }
+        for name, path in workflow_files.items():
+            if has_metadata_for_name(name):
+                continue
+            if any(name == workflow_id or name.startswith(f"{workflow_id}_") for workflow_id in version_ids):
+                continue
+            data = self._read_workflow_file(path)
+            if data and data.get("id") in version_data_ids:
+                continue
+            add_entry(str(uuid.uuid4()), name, path)
+
+        if changed:
+            self._save_metadata_snapshot("recovery")
+            self._write_metadata(meta)
+            print(f"[yeban-WM] Metadata recovered from disk: {len(workflows)} workflows")
 
     def _write_metadata(self, data):
         """线程安全地写入元数据"""
         try:
             with self._metadata_lock:
                 # 先写到临时文件，再原子性重命名
+                if self.metadata_file.exists():
+                    try:
+                        shutil.copy2(self.metadata_file, self.metadata_backup_file)
+                    except Exception as e:
+                        print(f"[yeban-WM] Failed to update metadata backup: {e}")
                 temp_file = self.metadata_file.with_suffix('.tmp')
                 temp_file.write_text(
                     json.dumps(data, indent=2, ensure_ascii=False),
@@ -73,7 +278,55 @@ class FileHandler:
             filename = "untitled"
         return filename
 
+    def _auto_backup_existing_workflow(self, workflow_id, workflow_name, wf_file):
+        if not self.auto_backup_enabled or not wf_file.exists():
+            return None
+
+        try:
+            safe_name = self._sanitize_filename(workflow_name)
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            backup_file = self.auto_backups_dir / f"{workflow_id}_{safe_name}_{ts}.json"
+            shutil.copy2(wf_file, backup_file)
+            self._cleanup_old_auto_backups(workflow_id)
+            return backup_file
+        except Exception as e:
+            print(f"[yeban-WM] Failed to auto-backup workflow {workflow_id}: {e}")
+            return None
+
+    def _cleanup_old_auto_backups(self, workflow_id):
+        try:
+            backups = sorted(
+                self.auto_backups_dir.glob(f"{workflow_id}_*.json"),
+                key=lambda f: f.stat().st_mtime
+            )
+            while len(backups) > self.max_auto_backups:
+                old_file = backups.pop(0)
+                try:
+                    old_file.unlink()
+                except Exception as e:
+                    print(f"[yeban-WM] Failed to delete old auto backup: {e}")
+        except Exception as e:
+            print(f"[yeban-WM] Failed to cleanup auto backups: {e}")
+
     # ── groups ────────────────────────────────────────────────────────────────
+
+    def _sync_latest_backup(self, workflow_id, workflow_name, workflow_data):
+        if not self.latest_backup_enabled:
+            return None
+
+        try:
+            safe_name = self._sanitize_filename(workflow_name)
+            backup_file = self.latest_backups_dir / f"{workflow_id}_{safe_name}.json"
+            temp_file = backup_file.with_suffix(".tmp")
+            temp_file.write_text(
+                json.dumps(workflow_data, indent=2, ensure_ascii=False),
+                encoding="utf-8"
+            )
+            temp_file.replace(backup_file)
+            return backup_file
+        except Exception as e:
+            print(f"[yeban-WM] Failed to sync latest backup {workflow_id}: {e}")
+            return None
 
     def create_group(self, group_name, parent_id=None):
         """创建分组"""
@@ -139,12 +392,15 @@ class FileHandler:
         
         try:
             # 先写到临时文件，再原子性重命名
+            if existing_id and wf_file.exists():
+                self._auto_backup_existing_workflow(existing_id, workflow_name, wf_file)
             temp_file = wf_file.with_suffix('.tmp')
             temp_file.write_text(
                 json.dumps(workflow_data, indent=2, ensure_ascii=False),
                 encoding="utf-8"
             )
             temp_file.replace(wf_file)
+            self._sync_latest_backup(wf_id, workflow_name, workflow_data)
         except Exception as e:
             print(f"[yeban-WM] Failed to write workflow file: {e}")
             raise

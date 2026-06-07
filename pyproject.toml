@@ -1,14 +1,15 @@
 [project]
 name = "yeban-workflow-manager"
-description = "A ComfyUI workflow manager plugin with auto-save, version history, sidebar integration and more."
-version = "0.2.3"
+description = "A ComfyUI workflow manager plugin with auto-save, version history, resilient metadata recovery, and synchronized workflow backups."
+version = "0.2.4"
 license = { text = "MIT" }
+dependencies = []
 
 [project.urls]
 Repository = "https://github.com/wsq194/yeban-workflow-manager"
 
 [tool.comfy]
-PublisherId = "wsq194"                    
+PublisherId = "wsq194"
 DisplayName = "Yeban Workflow Manager"
-Icon = ""                                 
+Icon = ""
 includes = []

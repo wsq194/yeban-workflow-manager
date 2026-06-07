@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.tmp
+*.log
+.git/
+.gitignore
+.env
+venv/
+ENV/
+node.zip
+tools/
+yeban-workflows/
