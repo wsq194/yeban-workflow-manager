@@ -1,7 +1,7 @@
 [project]
 name = "yeban-workflow-manager"
 description = "A ComfyUI workflow manager plugin with auto-save, version history, resilient metadata recovery, and synchronized workflow backups."
-version = "0.2.4"
+version = "0.2.5"
 license = { text = "MIT" }
 dependencies = []
 

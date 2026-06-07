@@ -1,18 +1,13 @@
+import { t } from "../i18n.js";
 import { API } from "../api.js";
 import { showConfirm } from "./Dialog.js";
 import { formatVersionFilename } from "../utils.js";
 
 export class VersionHistory {
-    /**
-     * 从右侧滑入的版本历史面板
-     * @param {HTMLElement} parentEl  — 挂载到哪个容器（相对定位）
-     * @param {object} opts
-     *   opts.onRestore()  — 回滚后回调
-     */
     constructor(parentEl, opts = {}) {
         this.parentEl = parentEl;
-        this.opts     = opts;
-        this.panel    = null;
+        this.opts = opts;
+        this.panel = null;
     }
 
     async show(workflowId, workflowName) {
@@ -29,7 +24,6 @@ export class VersionHistory {
             transition:transform .2s ease;
         `;
 
-        // header
         const header = document.createElement("div");
         header.style.cssText = `
             padding:14px 16px;border-bottom:1px solid #333;
@@ -38,7 +32,7 @@ export class VersionHistory {
         `;
         header.innerHTML = `
             <div>
-                <div style="font-size:13px;font-weight:600;color:#fff;">版本历史</div>
+                <div style="font-size:13px;font-weight:600;color:#fff;">${t("versionHistory")}</div>
                 <div style="font-size:11px;color:#666;margin-top:2px;
                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">
                     ${workflowName}
@@ -47,7 +41,7 @@ export class VersionHistory {
         `;
 
         const closeBtn = document.createElement("button");
-        closeBtn.textContent = "✕";
+        closeBtn.textContent = "×";
         closeBtn.style.cssText = `
             background:none;border:none;color:#666;
             cursor:pointer;font-size:14px;padding:4px;
@@ -58,27 +52,24 @@ export class VersionHistory {
         closeBtn.addEventListener("click", () => this.close());
         header.appendChild(closeBtn);
 
-        // list
         const list = document.createElement("div");
         list.style.cssText = "flex:1;overflow-y:auto;padding:8px;";
-        list.innerHTML = `<div style="color:#555;text-align:center;padding:30px;font-size:12px;">加载中...</div>`;
+        list.innerHTML = `<div style="color:#555;text-align:center;padding:30px;font-size:12px;">${t("loading")}</div>`;
 
         panel.appendChild(header);
         panel.appendChild(list);
         this.parentEl.appendChild(panel);
         this.panel = panel;
 
-        // 动画
         requestAnimationFrame(() => { panel.style.transform = "translateX(0)"; });
 
-        // 加载版本列表
         const res = await API.listVersions(workflowId);
         const versions = res.versions || [];
 
         list.innerHTML = "";
 
         if (versions.length === 0) {
-            list.innerHTML = `<div style="color:#555;text-align:center;padding:30px;font-size:12px;">暂无历史版本</div>`;
+            list.innerHTML = `<div style="color:#555;text-align:center;padding:30px;font-size:12px;">${t("noHistory")}</div>`;
             return;
         }
 
@@ -93,14 +84,14 @@ export class VersionHistory {
             item.addEventListener("mouseenter", () => item.style.background = "#2e2e2e");
             item.addEventListener("mouseleave", () => item.style.background = "#242424");
 
-            const label = index === 0 ? "最新版本" : `版本 ${versions.length - index}`;
+            const label = index === 0 ? t("latestVersion") : `${t("version")} ${versions.length - index}`;
             item.innerHTML = `
                 <div style="font-size:12px;color:#ccc;margin-bottom:4px;">${label}</div>
                 <div style="font-size:11px;color:#555;">${formatVersionFilename(filename)}</div>
             `;
 
             const restoreBtn = document.createElement("button");
-            restoreBtn.textContent = "回滚";
+            restoreBtn.textContent = t("restore");
             restoreBtn.style.cssText = `
                 margin-top:8px;padding:4px 12px;
                 background:#333;color:#aaa;
@@ -119,13 +110,14 @@ export class VersionHistory {
                 restoreBtn.style.borderColor = "#444";
             });
             restoreBtn.addEventListener("click", async () => {
+                const version = formatVersionFilename(filename);
                 const ok = await showConfirm({
-                    title: "回滚版本",
-                    message: `确定回滚到 ${formatVersionFilename(filename)}？当前版本会自动备份。`,
+                    title: t("restoreVersion"),
+                    message: t("restoreConfirm", { version }),
                 });
                 if (!ok) return;
-                const r = await API.restoreVersion(workflowId, filename);
-                if (r.status === "success") {
+                const result = await API.restoreVersion(workflowId, filename);
+                if (result.status === "success") {
                     this.close();
                     this.opts.onRestore?.();
                 }

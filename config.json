@@ -1,5 +1,5 @@
 {
-  "version": "0.2.4",
+  "version": "0.2.5",
   "name": "Yeban Workflow Manager",
   "data_dir": "yeban-workflows",
   "auto_save_interval": 60,

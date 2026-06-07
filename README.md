@@ -1,101 +1,79 @@
-# yeban Workflow Manager
+# Yeban Workflow Manager
 
-一个为 ComfyUI 设计的工作流管理插件，参考 [comfyui-workspace-manager](https://github.com/11cafe/comfyui-workspace-manager) 的设计思路，适配最新版 ComfyUI。
+[中文](#中文) | [English](#english)
 
-<img width="2571" height="1361" alt="image" src="https://github.com/user-attachments/assets/0b362c66-f61c-4cef-8135-f9e5d83dda0e" />
+<img width="2571" height="1361" alt="Yeban Workflow Manager preview" src="https://github.com/user-attachments/assets/0b362c66-f61c-4cef-8135-f9e5d83dda0e" />
 
+## 中文
 
-## ✨ 功能特点
+Yeban Workflow Manager 是一个为 ComfyUI 设计的工作流管理插件，提供侧边栏管理、自动保存、版本历史、分组、搜索、缩略图和多层备份保护。
 
-- 📁 **分组管理** — 支持多级分组，拖拽工作流到分组
-- 💾 **自动保存** — 每 60 秒自动保存当前工作流，无需手动操作
-- 🕐 **版本历史** — 每次保存前自动创建快照，保留最近 20 个版本，支持一键回滚
-- 🖼 **缩略图** — 保存时自动截取画布缩略图，也支持自定义封面图片
-- 🏷️ **标签系统** — 为工作流添加标签，支持按标签搜索
-- ★ **收藏** — 收藏常用工作流，快速访问
-- 🔍 **搜索** — 按名称或标签实时搜索
-- 📦 **备份导出** — 手动备份工作流到本地
-- 🎨 **侧边栏集成** — 直接嵌入 ComfyUI 侧边栏，无需额外窗口
+### 功能特点
 
-## 📦 安装
+- 分组管理：支持分组、子分组和拖拽移动工作流。
+- 自动保存：手动保存过的工作流会按间隔自动更新。
+- 版本历史：保存前自动创建版本快照，可从历史版本回滚。
+- 最新同步备份：每个工作流保存后都会同步一份最新备份。
+- 覆盖前历史备份：覆盖已有工作流前会保留旧状态快照。
+- 元数据自愈：如果 `metadata.json` 丢失或被重建，会从磁盘工作流和版本快照自动恢复索引。
+- 缩略图：保存时自动截取画布缩略图，也支持自定义封面。
+- 标签与收藏：支持标签搜索和收藏常用工作流。
+- 中英界面：面板顶部可在中文和 English 之间切换。
 
-### 方法一：git clone（推荐）
+### 安装
+
+#### Comfy Registry / ComfyUI Manager
+
+在 ComfyUI Manager 或 Comfy Registry 中搜索：
+
+```bash
+yeban-workflow-manager
+```
+
+也可以使用：
+
+```bash
+comfy node install yeban-workflow-manager
+```
+
+#### Git Clone
 
 ```bash
 cd ComfyUI/custom_nodes
 git clone https://github.com/wsq194/yeban-workflow-manager.git
 ```
 
-重启 ComfyUI 即可。
+重启 ComfyUI 后生效。
 
-### 方法二：手动安装
+### 使用方法
 
-1. 下载本仓库 zip 并解压
-2. 将文件夹放入 `ComfyUI/custom_nodes/`
-3. 重启 ComfyUI
+- 打开管理器：点击 ComfyUI 左侧侧边栏中的工作流管理图标。
+- 保存当前：使用当前标签栏名称快速保存当前画布。
+- 另存为：输入新名称并选择保存分组。
+- 加载工作流：点击工作流卡片名称区域。
+- 分组管理：新建分组，右键分组可重命名、新建子分组或删除。
+- 版本历史：右键工作流，选择版本历史并回滚。
+- 自定义封面：右键工作流，选择自定义封面。
+- 切换语言：在面板顶部选择 `中文` 或 `English`，选择会保存在浏览器本地。
 
-### 方法三：ComfyUI Manager
+### 数据存储
 
-在 ComfyUI Manager 中搜索 `yeban Workflow Manager` 一键安装。
+所有运行数据保存在 `ComfyUI/yeban-workflows/`：
 
-## 🚀 使用方法
-
-### 打开管理器
-
-点击左侧侧边栏的 📁 工作流管理 图标即可打开。
-
-### 保存工作流
-
-点击顶部 💾 保存当前 按钮，输入名称后保存。
-
-保存后插件会自动每 60 秒更新一次该工作流。
-
-### 加载工作流
-
-点击列表中的工作流名称区域即可加载到画布。
-
-### 分组管理
-
-- 点击 📁 新建分组 创建分组
-- 右键分组可重命名、新建子分组、删除
-- 拖拽工作流到左侧分组树可移动分组
-
-### 版本历史
-
-右键工作流 → 🕐 版本历史，可查看所有历史快照并回滚。
-
-每次保存时自动创建快照，最多保留 20 个版本。
-
-### 自定义封面
-
-右键工作流 → 🖼️ 自定义封面，选择本地图片作为缩略图。
-
-### 标签
-
-右键工作流 → 🏷️ 编辑标签，输入标签（逗号分隔）。
-
-搜索框支持按标签名搜索。
-
-### 备份
-
-右键工作流 → 💾 备份，将工作流 JSON 备份到本地 `yeban-workflows/backups/` 目录。
-
-## 📂 数据存储
-
-所有数据保存在 `ComfyUI/yeban-workflows/` 目录下：
-
-```
+```text
 yeban-workflows/
-├── metadata.json     # 工作流和分组的元数据
-├── workflows/        # 工作流 JSON 文件（以 UUID 命名）
-├── thumbnails/       # 缩略图
-├── versions/         # 版本历史快照
-└── backups/          # 手动备份与自动备份
-    ├── latest/       # 每个工作流的最新同步备份
-    └── auto/         # 覆盖保存前的历史快照备份
+├── metadata.json          # 工作流和分组索引
+├── metadata.json.bak      # 上一次 metadata 备份
+├── metadata_backups/      # metadata 自动恢复快照
+├── workflows/             # 主工作流 JSON
+├── thumbnails/            # 缩略图
+├── versions/              # 版本历史快照
+└── backups/
+    ├── latest/            # 每个工作流的最新同步备份
+    └── auto/              # 覆盖保存前的历史快照备份
 ```
 
-## ⚙️ 配置
+### 配置
 
 编辑插件目录下的 `config.json`：
 
@@ -103,48 +81,159 @@ yeban-workflows/
 {
   "auto_save_interval": 60,
   "max_versions": 20,
+  "latest_backup_enabled": true,
   "auto_backup_enabled": true,
   "max_auto_backups": 50,
-  "latest_backup_enabled": true
+  "language": "zh"
 }
 ```
 
 | 字段 | 说明 | 默认值 |
-|------|------|--------|
-| auto_save_interval | 自动保存间隔（秒） | 60 |
-| max_versions | 每个工作流保留的最大版本数 | 20 |
-| latest_backup_enabled | 保存后是否同步一份最新备份 | true |
-| auto_backup_enabled | 覆盖保存前是否保留历史快照备份 | true |
-| max_auto_backups | 每个工作流最多保留的历史快照备份数 | 50 |
+| --- | --- | --- |
+| `auto_save_interval` | 自动保存间隔，单位秒 | `60` |
+| `max_versions` | 每个工作流保留的版本历史数量 | `20` |
+| `latest_backup_enabled` | 保存后是否同步最新备份 | `true` |
+| `auto_backup_enabled` | 覆盖前是否保留历史备份 | `true` |
+| `max_auto_backups` | 每个工作流最多保留的覆盖前备份数量 | `50` |
+| `language` | 默认语言提示，界面也可在面板顶部切换 | `zh` |
 
-## 🖥️ 系统要求
+### 系统要求
 
 - ComfyUI 0.19.0+
 - Python 3.10+
-- 无额外 Python 依赖
+- 无额外 Python 运行依赖
 
-## 📝 更新日志
+### 更新日志
 
-### v0.0.1
+#### v0.2.5
 
-- 全面重构，适配最新版 ComfyUI
-- 新增版本历史功能
-- 新增缩略图和自定义封面
-- 侧边栏直接嵌入，无需弹窗
-- 工作流 ID 改为 UUID，避免重命名冲突
-- 自动保存功能
+- 新增面板内中文 / English 切换。
+- 更新 GitHub README 为中英双语说明。
 
-## 自动保存补充说明
-- 每 60 秒触发一次
-- 只会保存当前 session 里打开过的工作流（tabWorkflowMap 里有记录的）
-- 如果你手动点过"保存当前"，之后自动保存就会持续更新那个工作流
+#### v0.2.4
 
-验证方法：底部状态栏或者终端会显示 `自动保存: HH:MM`，等 60 秒看看有没有出现。
+- 新增 metadata 自动自愈。
+- 新增最新同步备份 `backups/latest/`。
+- 新增覆盖前历史备份 `backups/auto/`。
+- 增加 Comfy Registry 发布元信息。
 
-## 🙏 致谢
+## English
 
-UI 设计和功能参考了 [comfyui-workspace-manager](https://github.com/11cafe/comfyui-workspace-manager)，感谢原作者的开源贡献。
+Yeban Workflow Manager is a ComfyUI custom node extension for managing workflows from the sidebar. It adds auto-save, version history, groups, search, thumbnails, resilient metadata recovery, and layered backup protection.
 
-## 📄 License
+### Features
+
+- Group management: groups, subgroups, and drag-and-drop workflow movement.
+- Auto-save: saved workflows can continue updating on a timer.
+- Version history: snapshots are created before saves and can be restored.
+- Latest synced backup: each workflow keeps one latest mirror backup after saving.
+- Pre-overwrite backups: old workflow states are kept before overwriting.
+- Metadata recovery: if `metadata.json` is lost or reset, the plugin rebuilds the index from workflow files and version snapshots.
+- Thumbnails: automatic canvas thumbnails plus custom covers.
+- Tags and stars: tag search and starred workflows.
+- Bilingual UI: switch between Chinese and English from the panel header.
+
+### Installation
+
+#### Comfy Registry / ComfyUI Manager
+
+Search for:
+
+```bash
+yeban-workflow-manager
+```
+
+Or install with:
+
+```bash
+comfy node install yeban-workflow-manager
+```
+
+#### Git Clone
+
+```bash
+cd ComfyUI/custom_nodes
+git clone https://github.com/wsq194/yeban-workflow-manager.git
+```
+
+Restart ComfyUI after installation.
+
+### Usage
+
+- Open the manager from the ComfyUI sidebar.
+- Save current uses the active workflow tab name.
+- Save as lets you choose a name and target group.
+- Click a workflow card to load it.
+- Create groups and manage them from the group tree context menu.
+- Open version history from a workflow context menu and restore snapshots.
+- Set a custom cover from a workflow context menu.
+- Switch language from the panel header. The choice is stored in browser local storage.
+
+### Data Storage
+
+Runtime data is stored under `ComfyUI/yeban-workflows/`:
+
+```text
+yeban-workflows/
+├── metadata.json          # Workflow and group index
+├── metadata.json.bak      # Previous metadata backup
+├── metadata_backups/      # Metadata recovery snapshots
+├── workflows/             # Main workflow JSON files
+├── thumbnails/            # Thumbnails
+├── versions/              # Version history snapshots
+└── backups/
+    ├── latest/            # Latest synced backup for each workflow
+    └── auto/              # Pre-overwrite historical backups
+```
+
+### Configuration
+
+Edit `config.json` in the plugin directory:
+
+```json
+{
+  "auto_save_interval": 60,
+  "max_versions": 20,
+  "latest_backup_enabled": true,
+  "auto_backup_enabled": true,
+  "max_auto_backups": 50,
+  "language": "zh"
+}
+```
+
+| Field | Description | Default |
+| --- | --- | --- |
+| `auto_save_interval` | Auto-save interval in seconds | `60` |
+| `max_versions` | Maximum version snapshots per workflow | `20` |
+| `latest_backup_enabled` | Keep a latest synced backup after saving | `true` |
+| `auto_backup_enabled` | Keep pre-overwrite historical backups | `true` |
+| `max_auto_backups` | Maximum pre-overwrite backups per workflow | `50` |
+| `language` | Default language hint; UI can also switch from the panel | `zh` |
+
+### Requirements
+
+- ComfyUI 0.19.0+
+- Python 3.10+
+- No extra Python runtime dependencies
+
+### Changelog
+
+#### v0.2.5
+
+- Added in-panel Chinese / English language switching.
+- Reworked README with bilingual documentation.
+
+#### v0.2.4
+
+- Added metadata self-recovery.
+- Added latest synced backups in `backups/latest/`.
+- Added pre-overwrite history backups in `backups/auto/`.
+- Added Comfy Registry publishing metadata.
+
+## Acknowledgements
+
+UI and workflow-management ideas were inspired by [comfyui-workspace-manager](https://github.com/11cafe/comfyui-workspace-manager). Thanks to the original author for the open-source work.
+
+## License
 
 MIT

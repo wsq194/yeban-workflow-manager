@@ -1,6 +1,4 @@
-/**
- * 轻量级对话框组件
- */
+import { t } from "../i18n.js";
 
 function baseOverlay() {
     const el = document.createElement("div");
@@ -21,35 +19,33 @@ function baseBox() {
     return el;
 }
 
-/**
- * 通用对话框
- * showDialog({ title, fields, confirmText, cancelText, danger })
- *   fields: [{ key, label, default, placeholder }]
- *   返回 Promise<object|null>  null = 取消
- */
-export function showDialog({ title, fields = [], confirmText = "确定", cancelText = "取消", danger = false }) {
+export function showDialog({
+    title,
+    fields = [],
+    confirmText = t("confirm"),
+    cancelText = t("cancel"),
+    danger = false,
+}) {
     return new Promise(resolve => {
         const overlay = baseOverlay();
         const box = baseBox();
 
-        // title
         const titleEl = document.createElement("div");
         titleEl.textContent = title;
         titleEl.style.cssText = "font-size:15px;font-weight:600;color:#fff;margin-bottom:16px;";
         box.appendChild(titleEl);
 
-        // fields
         const inputs = {};
-        fields.forEach(f => {
+        fields.forEach(field => {
             const label = document.createElement("div");
-            label.textContent = f.label;
+            label.textContent = field.label;
             label.style.cssText = "font-size:12px;color:#999;margin-bottom:5px;";
             box.appendChild(label);
 
             const input = document.createElement("input");
             input.type = "text";
-            input.value = f.default || "";
-            input.placeholder = f.placeholder || "";
+            input.value = field.default || "";
+            input.placeholder = field.placeholder || "";
             input.style.cssText = `
                 width:100%;box-sizing:border-box;padding:8px 11px;
                 background:#1a1a1a;border:1px solid #444;color:#fff;
@@ -59,10 +55,9 @@ export function showDialog({ title, fields = [], confirmText = "确定", cancelT
             input.addEventListener("focus", () => input.style.borderColor = "#0066cc");
             input.addEventListener("blur", () => input.style.borderColor = "#444");
             box.appendChild(input);
-            inputs[f.key] = input;
+            inputs[field.key] = input;
         });
 
-        // buttons
         const btnRow = document.createElement("div");
         btnRow.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:4px;";
 
@@ -81,19 +76,22 @@ export function showDialog({ title, fields = [], confirmText = "确定", cancelT
             color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:13px;
         `;
 
-        const close = (result) => { overlay.remove(); resolve(result); };
+        const close = result => {
+            overlay.remove();
+            resolve(result);
+        };
 
         cancelBtn.addEventListener("click", () => close(null));
         confirmBtn.addEventListener("click", () => {
             const result = {};
-            for (const [k, el] of Object.entries(inputs)) result[k] = el.value.trim();
+            for (const [key, input] of Object.entries(inputs)) result[key] = input.value.trim();
             close(result);
         });
 
-        overlay.addEventListener("click", e => { if (e.target === overlay) close(null); });
-        box.addEventListener("keydown", e => {
-            if (e.key === "Enter") confirmBtn.click();
-            if (e.key === "Escape") close(null);
+        overlay.addEventListener("click", event => { if (event.target === overlay) close(null); });
+        box.addEventListener("keydown", event => {
+            if (event.key === "Enter") confirmBtn.click();
+            if (event.key === "Escape") close(null);
         });
 
         btnRow.appendChild(cancelBtn);
@@ -102,17 +100,11 @@ export function showDialog({ title, fields = [], confirmText = "确定", cancelT
         overlay.appendChild(box);
         document.body.appendChild(overlay);
 
-        // focus first input
         const first = Object.values(inputs)[0];
         if (first) setTimeout(() => first.focus(), 30);
     });
 }
 
-/**
- * 确认对话框
- * showConfirm({ title, message, danger })
- *   返回 Promise<boolean>
- */
 export function showConfirm({ title, message, danger = false }) {
     return new Promise(resolve => {
         const overlay = baseOverlay();
@@ -124,32 +116,39 @@ export function showConfirm({ title, message, danger = false }) {
 
         const msgEl = document.createElement("div");
         msgEl.textContent = message;
-        msgEl.style.cssText = "font-size:13px;color:#aaa;margin-bottom:20px;line-height:1.5;";
+        msgEl.style.cssText = "font-size:13px;color:#aaa;margin-bottom:20px;line-height:1.5;white-space:pre-wrap;";
 
         const btnRow = document.createElement("div");
         btnRow.style.cssText = "display:flex;gap:8px;justify-content:flex-end;";
 
         const cancelBtn = document.createElement("button");
-        cancelBtn.textContent = "取消";
+        cancelBtn.textContent = t("cancel");
         cancelBtn.style.cssText = `
             padding:7px 18px;background:#2a2a2a;color:#bbb;
             border:1px solid #444;border-radius:5px;cursor:pointer;font-size:13px;
         `;
 
         const confirmBtn = document.createElement("button");
-        confirmBtn.textContent = "确定";
+        confirmBtn.textContent = t("confirm");
         confirmBtn.style.cssText = `
             padding:7px 18px;
             background:${danger ? "#c0392b" : "#0066cc"};
             color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:13px;
         `;
 
-        const close = (r) => { overlay.remove(); resolve(r); };
+        const close = result => {
+            overlay.remove();
+            resolve(result);
+        };
+
         cancelBtn.addEventListener("click", () => close(false));
         confirmBtn.addEventListener("click", () => close(true));
-        overlay.addEventListener("click", e => { if (e.target === overlay) close(false); });
-        document.addEventListener("keydown", function handler(e) {
-            if (e.key === "Escape") { close(false); document.removeEventListener("keydown", handler); }
+        overlay.addEventListener("click", event => { if (event.target === overlay) close(false); });
+        document.addEventListener("keydown", function handler(event) {
+            if (event.key === "Escape") {
+                close(false);
+                document.removeEventListener("keydown", handler);
+            }
         });
 
         btnRow.appendChild(cancelBtn);
@@ -163,36 +162,31 @@ export function showConfirm({ title, message, danger = false }) {
     });
 }
 
-/**
- * 另存为对话框 - 包含分组选择
- */
-export function showSaveAsDialog({ 
-    defaultName = "", 
-    groups = {}, 
+export function showSaveAsDialog({
+    defaultName = "",
+    groups = {},
     currentGroupId = null,
-    confirmText = "确定", 
-    cancelText = "取消" 
+    confirmText = t("confirm"),
+    cancelText = t("cancel"),
 }) {
     return new Promise(resolve => {
         const overlay = baseOverlay();
         const box = baseBox();
 
-        // title
         const titleEl = document.createElement("div");
-        titleEl.textContent = "另存为";
+        titleEl.textContent = t("saveAs");
         titleEl.style.cssText = "font-size:15px;font-weight:600;color:#fff;margin-bottom:16px;";
         box.appendChild(titleEl);
 
-        // name field
         const nameLabel = document.createElement("div");
-        nameLabel.textContent = "工作流名称";
+        nameLabel.textContent = t("workflowName");
         nameLabel.style.cssText = "font-size:12px;color:#999;margin-bottom:5px;";
         box.appendChild(nameLabel);
 
         const nameInput = document.createElement("input");
         nameInput.type = "text";
         nameInput.value = defaultName || "";
-        nameInput.placeholder = "输入工作流名称";
+        nameInput.placeholder = t("enterWorkflowName");
         nameInput.style.cssText = `
             width:100%;box-sizing:border-box;padding:8px 11px;
             background:#1a1a1a;border:1px solid #444;color:#fff;
@@ -203,9 +197,8 @@ export function showSaveAsDialog({
         nameInput.addEventListener("blur", () => nameInput.style.borderColor = "#444");
         box.appendChild(nameInput);
 
-        // group select
         const groupLabel = document.createElement("div");
-        groupLabel.textContent = "保存到分组";
+        groupLabel.textContent = t("saveToGroup");
         groupLabel.style.cssText = "font-size:12px;color:#999;margin-bottom:5px;";
         box.appendChild(groupLabel);
 
@@ -217,38 +210,31 @@ export function showSaveAsDialog({
             transition:border-color .15s;
         `;
 
-        // 构建分组树选项
-        const buildGroupOptions = (parentId = null, depth = 0) => {
-            const entries = Object.entries(groups)
-                .filter(([, g]) => g.parent === parentId)
-                .sort(([, a], [, b]) => a.name.localeCompare(b.name));
-
-            entries.forEach(([gid, g]) => {
-                const option = document.createElement("option");
-                option.value = gid;
-                option.textContent = "  ".repeat(depth) + g.name;
-                option.selected = gid === currentGroupId;
-                groupSelect.appendChild(option);
-
-                // 递归添加子分组
-                buildGroupOptions(gid, depth + 1);
-            });
-        };
-
-        // 添加"根目录"选项
         const rootOption = document.createElement("option");
         rootOption.value = "";
-        rootOption.textContent = "📋 根目录";
+        rootOption.textContent = `📋 ${t("root")}`;
         rootOption.selected = !currentGroupId;
         groupSelect.appendChild(rootOption);
 
+        const buildGroupOptions = (parentId = null, depth = 0) => {
+            Object.entries(groups)
+                .filter(([, group]) => group.parent === parentId)
+                .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+                .forEach(([groupId, group]) => {
+                    const option = document.createElement("option");
+                    option.value = groupId;
+                    option.textContent = "  ".repeat(depth) + group.name;
+                    option.selected = groupId === currentGroupId;
+                    groupSelect.appendChild(option);
+                    buildGroupOptions(groupId, depth + 1);
+                });
+        };
         buildGroupOptions();
 
         groupSelect.addEventListener("focus", () => groupSelect.style.borderColor = "#0066cc");
         groupSelect.addEventListener("blur", () => groupSelect.style.borderColor = "#444");
         box.appendChild(groupSelect);
 
-        // buttons
         const btnRow = document.createElement("div");
         btnRow.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:4px;";
 
@@ -266,25 +252,25 @@ export function showSaveAsDialog({
             border:none;border-radius:5px;cursor:pointer;font-size:13px;
         `;
 
-        const close = (result) => { 
-            overlay.remove(); 
-            resolve(result); 
+        const close = result => {
+            overlay.remove();
+            resolve(result);
         };
 
         cancelBtn.addEventListener("click", () => close(null));
         confirmBtn.addEventListener("click", () => {
             const name = nameInput.value.trim();
             if (!name) {
-                alert("请输入工作流名称");
+                alert(t("enterWorkflowName"));
                 return;
             }
             close({ name, groupId: groupSelect.value || null });
         });
 
-        overlay.addEventListener("click", e => { if (e.target === overlay) close(null); });
-        nameInput.addEventListener("keydown", e => {
-            if (e.key === "Enter") confirmBtn.click();
-            if (e.key === "Escape") close(null);
+        overlay.addEventListener("click", event => { if (event.target === overlay) close(null); });
+        nameInput.addEventListener("keydown", event => {
+            if (event.key === "Enter") confirmBtn.click();
+            if (event.key === "Escape") close(null);
         });
 
         btnRow.appendChild(cancelBtn);
@@ -293,7 +279,6 @@ export function showSaveAsDialog({
         overlay.appendChild(box);
         document.body.appendChild(overlay);
 
-        // focus name input
         setTimeout(() => nameInput.focus(), 30);
     });
 }
