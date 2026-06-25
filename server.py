@@ -8,7 +8,7 @@ def setup_web_routes(app):
     """设置 Web API 路由"""
     try:
         comfyui_path = Path(__file__).parent.parent.parent
-        manager = WorkflowManager(str(comfyui_path / "yeban-workflows"))
+        manager = WorkflowManager(str(WorkflowManager.resolve_data_path(comfyui_path)))
         api = WorkflowManagerAPI(manager)
 
         routes = [

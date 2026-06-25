@@ -3,7 +3,7 @@ import uuid
 import shutil
 from pathlib import Path
 from datetime import datetime
-from threading import Lock
+from threading import RLock
 import re
 
 
@@ -15,6 +15,7 @@ class FileHandler:
         self.backups_dir = self.base_path / "backups"
         self.auto_backups_dir = self.backups_dir / "auto"
         self.latest_backups_dir = self.backups_dir / "latest"
+        self.legacy_name_files_dir = self.backups_dir / "legacy-name-files"
         self.versions_dir = self.base_path / "versions"
         self.metadata_file = self.base_path / "metadata.json"
         self.metadata_backup_file = self.base_path / "metadata.json.bak"
@@ -23,7 +24,7 @@ class FileHandler:
         self.latest_backup_enabled = bool(latest_backup_enabled)
         
         # 线程锁，保证并发安全
-        self._metadata_lock = Lock()
+        self._metadata_lock = RLock()
         
         self._init_directories()
         self._init_metadata()
@@ -32,7 +33,8 @@ class FileHandler:
         """初始化所需目录"""
         for d in [self.workflows_dir, self.thumbnails_dir,
                   self.backups_dir, self.auto_backups_dir,
-                  self.latest_backups_dir, self.versions_dir]:
+                  self.latest_backups_dir, self.legacy_name_files_dir,
+                  self.versions_dir]:
             d.mkdir(parents=True, exist_ok=True)
 
     def _init_metadata(self):
@@ -40,6 +42,7 @@ class FileHandler:
         if not self.metadata_file.exists():
             self._write_metadata({"groups": {}, "workflows": {}})
         self._recover_metadata_from_files()
+        self._migrate_named_workflow_files()
 
     def _read_metadata(self):
         """线程安全地读取元数据"""
@@ -71,6 +74,50 @@ class FileHandler:
     def _workflow_file_for_name(self, workflow_name):
         safe_filename = self._sanitize_filename(workflow_name or "")
         return self.workflows_dir / f"{safe_filename}.json"
+
+    def _workflow_file_for_id(self, workflow_id):
+        return self.workflows_dir / f"{workflow_id}.json"
+
+    def _archive_legacy_workflow_file(self, workflow_id, legacy_file):
+        if not legacy_file.exists():
+            return
+        try:
+            stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            archived = self.legacy_name_files_dir / f"{workflow_id}_{stamp}_{legacy_file.name}"
+            shutil.move(str(legacy_file), str(archived))
+        except Exception as e:
+            print(f"[yeban-WM] Failed to archive legacy workflow file {legacy_file.name}: {e}")
+
+    def _migrate_named_workflow_files(self):
+        meta = self._read_metadata()
+        if not self._metadata_is_valid(meta):
+            return
+
+        changed = False
+        for workflow_id, wf in list(meta["workflows"].items()):
+            if not isinstance(wf, dict):
+                continue
+
+            workflow_name = wf.get("name") or workflow_id
+            id_file = self._workflow_file_for_id(workflow_id)
+            legacy_file = self._workflow_file_for_name(workflow_name)
+
+            if not id_file.exists() and legacy_file.exists():
+                try:
+                    shutil.copy2(legacy_file, id_file)
+                    wf["size"] = id_file.stat().st_size
+                    changed = True
+                    print(f"[yeban-WM] Migrated workflow file to id name: {workflow_id}.json")
+                except Exception as e:
+                    print(f"[yeban-WM] Failed to migrate workflow file {legacy_file.name}: {e}")
+                    continue
+
+            if legacy_file.exists() and legacy_file != id_file:
+                self._archive_legacy_workflow_file(workflow_id, legacy_file)
+
+        if changed:
+            self._save_metadata_snapshot("id_filename_migration")
+            self._write_metadata(meta)
 
     def _version_workflow_id(self, version_file):
         match = re.match(r"^(.+)_\d{8}_\d{6}\.json$", version_file.name)
@@ -386,20 +433,23 @@ class FileHandler:
         # 但文件名改为使用工作流名称
         wf_id = existing_id or str(uuid.uuid4())
         
-        # 创建安全的文件名（移除特殊字符）
-        safe_filename = self._sanitize_filename(workflow_name)
-        wf_file = self.workflows_dir / f"{safe_filename}.json"
+        # Store the primary workflow by id so duplicate display names cannot collide.
+        wf_file = self._workflow_file_for_id(wf_id)
+        legacy_file = self._workflow_file_for_name(workflow_name)
         
         try:
             # 先写到临时文件，再原子性重命名
-            if existing_id and wf_file.exists():
-                self._auto_backup_existing_workflow(existing_id, workflow_name, wf_file)
+            backup_source = wf_file if wf_file.exists() else legacy_file
+            if existing_id and backup_source.exists():
+                self._auto_backup_existing_workflow(existing_id, workflow_name, backup_source)
             temp_file = wf_file.with_suffix('.tmp')
             temp_file.write_text(
                 json.dumps(workflow_data, indent=2, ensure_ascii=False),
                 encoding="utf-8"
             )
             temp_file.replace(wf_file)
+            if legacy_file.exists() and legacy_file != wf_file:
+                self._archive_legacy_workflow_file(wf_id, legacy_file)
             self._sync_latest_backup(wf_id, workflow_name, workflow_data)
         except Exception as e:
             print(f"[yeban-WM] Failed to write workflow file: {e}")
@@ -441,8 +491,9 @@ class FileHandler:
             return None
         
         workflow_name = meta["workflows"][workflow_id]["name"]
-        safe_filename = self._sanitize_filename(workflow_name)
-        wf_file = self.workflows_dir / f"{safe_filename}.json"
+        wf_file = self._workflow_file_for_id(workflow_id)
+        if not wf_file.exists():
+            wf_file = self._workflow_file_for_name(workflow_name)
         
         if not wf_file.exists():
             return None
@@ -460,10 +511,14 @@ class FileHandler:
         
         # 根据工作流名称找到文件
         workflow_name = meta["workflows"][workflow_id]["name"]
-        safe_filename = self._sanitize_filename(workflow_name)
-        wf_file = self.workflows_dir / f"{safe_filename}.json"
-        
-        if wf_file.exists():
+        candidate_files = [
+            self._workflow_file_for_id(workflow_id),
+            self._workflow_file_for_name(workflow_name),
+        ]
+
+        for wf_file in candidate_files:
+            if not wf_file.exists():
+                continue
             try:
                 wf_file.unlink()
             except Exception as e:
@@ -494,21 +549,17 @@ class FileHandler:
         if workflow_id not in meta["workflows"]:
             return None
         
-        # 获取旧文件名
         old_name = meta["workflows"][workflow_id]["name"]
-        old_safe_filename = self._sanitize_filename(old_name)
-        old_wf_file = self.workflows_dir / f"{old_safe_filename}.json"
+        id_file = self._workflow_file_for_id(workflow_id)
+        old_legacy_file = self._workflow_file_for_name(old_name)
         
-        # 生成新文件名
-        new_safe_filename = self._sanitize_filename(new_name)
-        new_wf_file = self.workflows_dir / f"{new_safe_filename}.json"
-        
-        # 如果文件存在，重命名文件
-        if old_wf_file.exists() and old_wf_file != new_wf_file:
+        # Older releases stored the primary file by display name. Migrate it if needed.
+        if not id_file.exists() and old_legacy_file.exists():
             try:
-                old_wf_file.rename(new_wf_file)
+                shutil.copy2(old_legacy_file, id_file)
+                self._archive_legacy_workflow_file(workflow_id, old_legacy_file)
             except Exception as e:
-                print(f"[yeban-WM] Failed to rename workflow file: {e}")
+                print(f"[yeban-WM] Failed to migrate workflow file during rename: {e}")
         
         # 更新元数据
         meta["workflows"][workflow_id]["name"] = new_name
@@ -628,6 +679,10 @@ class FileHandler:
 
     def restore_version(self, workflow_id, version_filename):
         """恢复到指定版本"""
+        if Path(version_filename).name != version_filename:
+            return False
+        if not version_filename.startswith(f"{workflow_id}_"):
+            return False
         ver_file = self.versions_dir / version_filename
         if not ver_file.exists():
             return False
@@ -643,9 +698,7 @@ class FileHandler:
             if workflow_id not in meta["workflows"]:
                 return False
             
-            workflow_name = meta["workflows"][workflow_id]["name"]
-            safe_filename = self._sanitize_filename(workflow_name)
-            wf_file = self.workflows_dir / f"{safe_filename}.json"
+            wf_file = self._workflow_file_for_id(workflow_id)
             
             wf_file.write_text(
                 json.dumps(workflow_data, indent=2, ensure_ascii=False),
@@ -698,7 +751,8 @@ class FileHandler:
         
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         name = meta["workflows"][workflow_id]["name"]
-        backup_file = self.backups_dir / f"{name}_{ts}.json"
+        safe_name = self._sanitize_filename(name)
+        backup_file = self.backups_dir / f"{workflow_id}_{safe_name}_{ts}.json"
         
         try:
             backup_file.write_text(

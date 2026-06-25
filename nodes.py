@@ -7,7 +7,7 @@ class WorkflowManagerNode:
     def __init__(self):
         comfyui_path = Path(__file__).resolve().parent.parent.parent
         try:
-            self.manager = WorkflowManager(str(comfyui_path / "yeban-workflows"))
+            self.manager = WorkflowManager(str(WorkflowManager.resolve_data_path(comfyui_path)))
         except Exception as e:
             print(f"[yeban-WorkflowManager] Init failed: {e}")
             self.manager = None

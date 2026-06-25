@@ -30,26 +30,36 @@ class WorkflowManager:
         )
         WorkflowManager._initialized = True
 
+    @staticmethod
+    def _read_config_file():
+        config_file = Path(__file__).parent / "config.json"
+        if not config_file.exists():
+            return {}
+        return json.loads(config_file.read_text(encoding="utf-8"))
+
+    @classmethod
+    def resolve_data_path(cls, comfyui_path):
+        config = cls._read_config_file()
+        data_dir = config.get("data_dir", "yeban-workflows") or "yeban-workflows"
+        data_path = Path(data_dir).expanduser()
+        if not data_path.is_absolute():
+            data_path = Path(comfyui_path) / data_path
+        return data_path
+
     def _load_config(self):
         """从 config.json 加载配置"""
         try:
-            config_file = Path(__file__).parent / "config.json"
-            if config_file.exists():
-                config = json.loads(config_file.read_text(encoding="utf-8"))
-                self.auto_save_interval = config.get("auto_save_interval", 60)
-                self.max_versions = config.get("max_versions", 20)
-                self.auto_backup_enabled = config.get("auto_backup_enabled", True)
-                self.max_auto_backups = config.get("max_auto_backups", 50)
-                self.latest_backup_enabled = config.get("latest_backup_enabled", True)
-            else:
-                self.auto_save_interval = 60
-                self.max_versions = 20
-                self.auto_backup_enabled = True
-                self.max_auto_backups = 50
-                self.latest_backup_enabled = True
+            config = self._read_config_file()
+            self.data_dir = config.get("data_dir", "yeban-workflows")
+            self.auto_save_interval = config.get("auto_save_interval", 60)
+            self.max_versions = config.get("max_versions", 20)
+            self.auto_backup_enabled = config.get("auto_backup_enabled", True)
+            self.max_auto_backups = config.get("max_auto_backups", 50)
+            self.latest_backup_enabled = config.get("latest_backup_enabled", True)
             print(f"[yeban-WM] Config loaded: interval={self.auto_save_interval}s, max_versions={self.max_versions}, auto_backups={self.max_auto_backups}, latest_backup={self.latest_backup_enabled}")
         except Exception as e:
             print(f"[yeban-WM] Failed to load config: {e}")
+            self.data_dir = "yeban-workflows"
             self.auto_save_interval = 60
             self.max_versions = 20
             self.auto_backup_enabled = True
